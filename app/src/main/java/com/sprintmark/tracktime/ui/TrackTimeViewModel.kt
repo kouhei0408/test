@@ -15,8 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 data class TrackTimeUiState(
@@ -135,7 +137,9 @@ class TrackTimeViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(syncState = "同期中...", syncSamples = emptyList()) }
         viewModelScope.launch {
             runCatching {
-                val results = workerClient.performClockSync(baseUrl, samples)
+                val results = withContext(Dispatchers.IO) {
+                    workerClient.performClockSync(baseUrl, samples)
+                }
                 val best = results.minByOrNull { it.delayMs } ?: error("同期サンプルが取得できませんでした")
                 _uiState.update {
                     it.copy(
@@ -185,7 +189,9 @@ class TrackTimeViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(connectionState = "送信中...") }
         viewModelScope.launch {
             runCatching {
-                workerClient.postRaceSchedule(baseUrl, schedule)
+                withContext(Dispatchers.IO) {
+                    workerClient.postRaceSchedule(baseUrl, schedule)
+                }
             }.onSuccess {
                 _uiState.update { it.copy(connectionState = "送信完了", errorMessage = null) }
             }.onFailure { throwable ->
